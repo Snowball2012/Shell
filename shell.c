@@ -12,6 +12,15 @@ struct argument {
 };
 
 
+/*buffer structure*/
+struct buffer {
+	char * content;
+	int place;
+	int size;
+};
+
+
+
 void invite()
 {
 	printf(" >> ");
@@ -19,32 +28,61 @@ void invite()
 
 
 /* Add new word from buffer to the list, wordEnd - position of \0 in the buffer -----------------------------*/
-void AddWord(char * buff, int wordEnd, struct argument ** argList)
+void AddWord(struct buffer buff, struct argument ** argList)
 {
+	int wordEnd = buff.place;
 	if (wordEnd==0)
 		return;
+	(buff.content)[wordEnd] = '\0';
 	char * word = (char*)malloc(sizeof(char)*(wordEnd+1));
 	char * wordStart = word;
-	while (*word++ = *buff++); 
+	while (*buff.content!='\0'){
+		*word = *buff.content;
+		word++;
+		(buff.content)++;
+	}
+	*word = '\0';	
 	struct argument * newItem = (struct argument *)malloc(sizeof(*newItem));
 	newItem->next = *argList;
 	newItem->word = wordStart;
 	*argList = newItem;
 }
 
+/* buffer functions */
+struct buffer InitBuff(){
+	struct buffer buff;
+	buff.content = (char*)malloc(STD_BUFF_SIZE*sizeof(char));
+	buff.place = 0;
+	buff.size = STD_BUFF_SIZE;
+	return buff;
+}
 
 /* Expand buffer by STD_BUFF_SIZE */
-void ExpandBuff(char ** buff, int * buffSize)
+void ExpandBuff(struct buffer * buff)
 {
 	char * newBuff;
 	int n;
-	newBuff = (char*)malloc(sizeof(char)*(STD_BUFF_SIZE+*buffSize));
-	for (n=0; n<*buffSize; n++)
-		newBuff[n]=(*buff)[n];
-	free(*buff);
-	*buff = newBuff;
-	*buffSize += STD_BUFF_SIZE;
+	newBuff = (char*)malloc(sizeof(char)*(STD_BUFF_SIZE+buff->size));
+	for (n=0; n<buff->size; n++)
+		newBuff[n]=(buff->content)[n];
+	free(buff->content);
+	buff->content = newBuff;
+	buff->size += STD_BUFF_SIZE;
 }
+
+
+/*Add letter to buffer*/
+void AddChar(const char c, struct buffer * buff)
+{
+	char * content = buff->content;
+	int * place = &(buff->place);
+	int * size = &(buff->size);
+	content[*place] = c;
+	(*place)++;
+	if(*place>*size-1)
+		ExpandBuff(buff);
+}
+
 
 /*Parses new string in the command line---------------------------------------------------------------------
  * error codes:
@@ -54,12 +92,9 @@ void ExpandBuff(char ** buff, int * buffSize)
 int ParseString(struct argument ** argList)
 {
 	char quotes = 0; /*quotes flag, 0 = no open quotes*/
-	char * buff = (char*)malloc(STD_BUFF_SIZE*sizeof(char));
-	int place = 0; /*place of the last letter in buffer*/
-	int buffSize = STD_BUFF_SIZE;
+	struct buffer buff = InitBuff();
 	int error=0;
 	char isEnd=0; /*line end flag*/
-	char outsideWord = 1;
 	do {
 		int c = getchar();
 		switch(c) {
@@ -67,41 +102,33 @@ int ParseString(struct argument ** argList)
 				error = 1;
 				break;
 			case '\n':
-				if(quotes) {
+				if(quotes) 
 					error = 2;
-				} else {
+				else 
 					isEnd = 1;
-				}
 				break;
 			case ' ':
-				                          		
+				if(quotes){
+					AddChar(' ', &buff);	
+				} else {
+					AddWord(buff, argList);
+					buff.place = 0;
+				}
 				break;
 			case '\"':
-				if(quotes){
+				if(quotes)
 					quotes = 0;
-					outsideWord = 1;
-				} else {
+				else 
 					quotes = 1;
-					outsideWord = 0;
-				}
-				/*buff[place] = '\0';
-				AddWord(buff, place, argList);
-				place = 0;*/
 				break;
 			default:
-				outsideWord = 0;
-				buff[place] = c;
-				place++;
-				if(place>buffSize-1)
-					ExpandBuff(&buff, &buffSize);
+				AddChar(c, &buff);
 				break;
 		}
 	} while (!isEnd && !error);
-	if(!error) {
-		buff[place] = '\0';
-		AddWord(buff, place, argList);
-	}
-	free(buff);
+	if(!error) 
+		AddWord(buff, argList);
+	free(buff.content);
 	return error;
 }
 
@@ -132,7 +159,7 @@ int main(int argc, char ** argv)
 				printf("\n");
 		}
 		if (error == 2)
-			printf("Mismatched quotes");
+			printf("Mismatched quotes\n");
 		tmpArg = argList;
 		while(tmpArg) {
 				free(tmpArg->word);
