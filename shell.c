@@ -14,7 +14,7 @@ struct argument {
 
 void invite()
 {
-	printf("\n >> ");
+	printf(" >> ");
 }
 
 
@@ -50,7 +50,6 @@ void ExpandBuff(char ** buff, int * buffSize)
  * error codes:
  * 1 - EOF, program will be terminated
  * 2 - mismatched quotes
- * 3 - misplaced quotes    test comment
  * -------------------------------------------------------------------------------------------------------*/
 int ParseString(struct argument ** argList)
 {
@@ -60,7 +59,7 @@ int ParseString(struct argument ** argList)
 	int buffSize = STD_BUFF_SIZE;
 	int error=0;
 	char isEnd=0; /*line end flag*/
-	char waitForWord = 1;
+	char outsideWord = 1;
 	do {
 		int c = getchar();
 		switch(c) {
@@ -75,45 +74,22 @@ int ParseString(struct argument ** argList)
 				}
 				break;
 			case ' ':
-				if(!waitForWord){
-					if (quotes){
-						buff[place] = ' ';
-						place++;
-						if(place>buffSize-1)
-							ExpandBuff(&buff, &buffSize);
-					} else {
-						waitForWord = 1;
-						buff[place] = '\0';
-						AddWord(buff, place, argList);
-						place = 0;
-					}
-				}
+				                          		
 				break;
 			case '\"':
 				if(quotes){
 					quotes = 0;
-					waitForWord = 1;
-					buff[place] = '\0';
-					AddWord(buff, place, argList);
-					place = 0;
+					outsideWord = 1;
 				} else {
-					if(waitForWord){
-						quotes = 1;
-						waitForWord = 0;
-					} else {
-						isEnd = 1;
-						error = 3;
-						/*need to clear input*/
-						do {
-							c = getchar();
-							if (c == EOF) 
-								error = 1;
-						} while(c != '\n' && c!= EOF);
-					}
+					quotes = 1;
+					outsideWord = 0;
 				}
+				/*buff[place] = '\0';
+				AddWord(buff, place, argList);
+				place = 0;*/
 				break;
 			default:
-				waitForWord = 0;
+				outsideWord = 0;
 				buff[place] = c;
 				place++;
 				if(place>buffSize-1)
@@ -140,7 +116,6 @@ int main(int argc, char ** argv)
 		invite();
 		argList = NULL;
 		error = ParseString(&argList);
-		printf("\n");
 		tmpArg = argList;
 		if (!error) {
 			while (tmpArg) {
@@ -153,12 +128,11 @@ int main(int argc, char ** argv)
 				putchar(']');
 				tmpArg = tmpArg->next;
 			}
-			putchar ('\n');
+			if (argList)
+				printf("\n");
 		}
 		if (error == 2)
 			printf("Mismatched quotes");
-		if (error == 3)
-			printf("Misplaced quotes");
 		tmpArg = argList;
 		while(tmpArg) {
 				free(tmpArg->word);
