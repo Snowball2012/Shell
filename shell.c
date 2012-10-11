@@ -19,52 +19,38 @@ void invite()
 
 
 /* Add new word from buffer to the list, wordEnd - position of \0 in the buffer -----------------------------*/
-void AddWord(char * buff, int wordEnd, struct argument ** argList) 
+void AddWord(char * buff, int wordEnd, struct argument ** argList)
 {
-	printf("\nwe entered AddWord\n"); /*DEBUG*/
+	if (wordEnd==0)
+		return;
 	char * word = (char*)malloc(sizeof(char)*(wordEnd+1));
-	printf("\n malloc finished\n, wordEnd = %i", wordEnd);
 	char * wordStart = word;
-	printf("\n%s\n",buff);
-	while (*word++ = *buff++); /*{
-		printf("\n maybe... \n");
-		*word = *buff;
-		printf("\n%c\n",*buff);
-		buff++;
-		printf("\n%c\n",*buff);
-		word++;
-	}*/
-	printf("\n%s\n",buff);
-	*word = '\0';
-	/*debug*/
-	printf("we come so close... word copied");
+	while (*word++ = *buff++); 
 	struct argument * newItem = (struct argument *)malloc(sizeof(*newItem));
-	if (*argList){
-		while ((*argList)->next) {};
-		(*argList)->next = newItem;
-	} else {
-		*argList = newItem;
-	}
-	newItem->next = NULL;
+	newItem->next = *argList;
 	newItem->word = wordStart;
+	*argList = newItem;
 }
+
+
+/* Expand buffer by STD_BUFF_SIZE */
 void ExpandBuff(char ** buff, int * buffSize)
 {
 	char * newBuff;
 	int n;
 	newBuff = (char*)malloc(sizeof(char)*(STD_BUFF_SIZE+*buffSize));
-	for (n=0; n<*buffSize; n++) 
+	for (n=0; n<*buffSize; n++)
 		newBuff[n]=(*buff)[n];
 	free(*buff);
 	*buff = newBuff;
 	*buffSize += STD_BUFF_SIZE;
 }
-	
+
 /*Parses new string in the command line---------------------------------------------------------------------
  * error codes:
  * 1 - EOF, program will be terminated
  * 2 - mismatched quotes
- * 3 - misplaced quotes
+ * 3 - misplaced quotes    test comment
  * -------------------------------------------------------------------------------------------------------*/
 int ParseString(struct argument ** argList)
 {
@@ -82,10 +68,11 @@ int ParseString(struct argument ** argList)
 				error = 1;
 				break;
 			case '\n':
-				if(quotes)
+				if(quotes) {
 					error = 2;
-				else
+				} else {
 					isEnd = 1;
+				}
 				break;
 			case ' ':
 				if(!waitForWord){
@@ -116,6 +103,12 @@ int ParseString(struct argument ** argList)
 					} else {
 						isEnd = 1;
 						error = 3;
+						/*need to clear input*/
+						do {
+							c = getchar();
+							if (c == EOF) 
+								error = 1;
+						} while(c != '\n' && c!= EOF);
 					}
 				}
 				break;
@@ -128,22 +121,13 @@ int ParseString(struct argument ** argList)
 				break;
 		}
 	} while (!isEnd && !error);
-	if(error)
-		return error;
-	buff[place] = '\0';
-	AddWord(buff, place, argList);
-	return 0;
+	if(!error) {
+		buff[place] = '\0';
+		AddWord(buff, place, argList);
+	}
+	free(buff);
+	return error;
 }
-
-
-
-
-
-
-
-
-
-
 
 
 /* TODO: to complete main() --------------------------------------------------------------------------------*/
@@ -156,7 +140,6 @@ int main(int argc, char ** argv)
 		invite();
 		argList = NULL;
 		error = ParseString(&argList);
-		printf("\nParseString terminated\n"); /*DEBUG*/
 		printf("\n");
 		tmpArg = argList;
 		if (!error) {
@@ -172,17 +155,18 @@ int main(int argc, char ** argv)
 			}
 			putchar ('\n');
 		}
-		if (error == 2) 
-			printf("Mismatched or misplaced quotes");
+		if (error == 2)
+			printf("Mismatched quotes");
 		if (error == 3)
 			printf("Misplaced quotes");
 		tmpArg = argList;
 		while(tmpArg) {
+				free(tmpArg->word);
 				argList = tmpArg->next;
 				free(tmpArg);
 				tmpArg = argList;
-		}				
-	} while (error != 1);	
+		}
+	} while (error != 1);
 	printf("\n");
 	return 0;
 }
