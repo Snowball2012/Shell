@@ -1,15 +1,8 @@
 /* Shell part 1, made by Snowball 27.09.2012 */
-/* TODO:fix issues with word processing*/
 #include <stdio.h>
 #include <stdlib.h>
+#include "execution.h"
 #define STD_BUFF_SIZE 128
-
-
-/*item from list of the args*/
-struct argument {
-	char * word;
-	struct argument * next;
-};
 
 
 /*buffer structure*/
@@ -83,6 +76,15 @@ void AddChar(const char c, struct buffer * buff)
 		ExpandBuff(buff);
 }
 
+void ProcessSpace(struct buffer * buff, char quotes, struct argument ** argList)
+{
+	if(quotes){
+		AddChar(' ', buff);
+	} else {
+		AddWord(*buff, argList);
+		buff->place = 0;
+	}
+}
 
 /*Parses new string in the command line---------------------------------------------------------------------
  * error codes:
@@ -94,7 +96,7 @@ int ParseString(struct argument ** argList)
 	char quotes = 0; /*quotes flag, 0 = no open quotes*/
 	struct buffer buff = InitBuff();
 	int error=0;
-	char isEnd=0; /*line end flag*/
+	int isEnd = 0;   /*line end flag */
 	do {
 		int c = getchar();
 		switch(c) {
@@ -108,18 +110,10 @@ int ParseString(struct argument ** argList)
 					isEnd = 1;
 				break;
 			case ' ':
-				if(quotes){
-					AddChar(' ', &buff);	
-				} else {
-					AddWord(buff, argList);
-					buff.place = 0;
-				}
+				ProcessSpace(&buff, quotes, argList);
 				break;
 			case '\"':
-				if(quotes)
-					quotes = 0;
-				else 
-					quotes = 1;
+				quotes = !quotes;
 				break;
 			default:
 				AddChar(c, &buff);
@@ -132,8 +126,24 @@ int ParseString(struct argument ** argList)
 	return error;
 }
 
+void PrintArgs(struct argument * args)
+{
+	struct argument * tmpArg = args;
+	while (tmpArg) {
+		int i = 0;
+		putchar('[');
+		while (tmpArg->word[i]){
+			putchar(tmpArg->word[i]);
+			i++;
+		}
+		putchar(']');
+		tmpArg = tmpArg->next;
+	}
+	if (args)
+		printf("\n");
+}
 
-/* TODO: to complete main() --------------------------------------------------------------------------------*/
+/* MAIN --------------------------------------------------------------------------------*/
 int main(int argc, char ** argv)
 {
 	struct argument * argList;
@@ -143,29 +153,16 @@ int main(int argc, char ** argv)
 		invite();
 		argList = NULL;
 		error = ParseString(&argList);
-		tmpArg = argList;
-		if (!error) {
-			while (tmpArg) {
-				int i = 0;
-				putchar('[');
-				while (tmpArg->word[i]){
-					putchar(tmpArg->word[i]);
-					i++;
-				}
-				putchar(']');
-				tmpArg = tmpArg->next;
-			}
-			if (argList)
-				printf("\n");
-		}
+		if (!error) 
+			PrintArgs(argList);
 		if (error == 2)
 			printf("Mismatched quotes\n");
 		tmpArg = argList;
 		while(tmpArg) {
-				free(tmpArg->word);
-				argList = tmpArg->next;
-				free(tmpArg);
-				tmpArg = argList;
+			free(tmpArg->word);
+			argList = tmpArg->next;
+			free(tmpArg);
+			tmpArg = argList;
 		}
 	} while (error != 1);
 	printf("\n");
