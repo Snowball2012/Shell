@@ -120,7 +120,7 @@ int ParseString(struct argument ** argList)
 				break;
 		}
 	} while (!isEnd && !error);
-	if(!error) 
+	if(error==0) 
 		AddWord(buff, argList);
 	free(buff.content);
 	return error;
@@ -149,21 +149,24 @@ int main(int argc, char ** argv)
 	struct argument * argList;
 	int error;
 	do {
-		struct argument * tmpArg;
+		int argc, i;
+		argc = 0;
+		char ** argv = NULL;
 		invite();
 		argList = NULL;
 		error = ParseString(&argList);
-		if (!error) 
-			PrintArgs(argList);
+		if (!error) {
+			int pid;
+			argv= List2arg(argList,&argc);
+			pid = Execution(argv[0], argv);
+		}
+		if (error == 1)
+			break;
 		if (error == 2)
 			printf("Mismatched quotes\n");
-		tmpArg = argList;
-		while(tmpArg) {
-			free(tmpArg->word);
-			argList = tmpArg->next;
-			free(tmpArg);
-			tmpArg = argList;
-		}
+		for(i=0;i<=argc;i++)
+			   free(argv[argc-i]);
+		free(argv);	
 	} while (error != 1);
 	printf("\n");
 	return 0;

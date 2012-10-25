@@ -1,8 +1,5 @@
 #include "execution.h"
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
 
 char ** List2arg(struct argument * list, int * argc)
 {

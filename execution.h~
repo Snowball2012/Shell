@@ -7,7 +7,7 @@ struct argument {
 };
 
 /* converts argument list to array for next execution */
-char ** List2arg(struct argument * list, int * argc);
+char ** List2argv(struct argument * list, int * argc);
 int Execution(char * filename, char ** argv);
 
 #endif
