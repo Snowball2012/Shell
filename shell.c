@@ -11,7 +11,7 @@ void invite()
 {
 	char buf[256];
 	getcwd(buf, sizeof(buf));
-	printf("[%s] >> ", buf);
+	printf("[%s] (,;,;,) ", buf);
 }
 
 
@@ -21,25 +21,33 @@ int main(int argc, char ** argv)
 {
 	struct argument * argList;
 	int error;
+	struct execNode * execList = NULL;
+	printf("\nWelcome to Cthulhu sHEll.\nPh'nglui mglw'nafh Cthulhu R'lyeh wgah'nagl fhtagn.\n\n");
 	do {
 		int argc, i;
-		argc = 0;
-		char ** argv = NULL;
 		invite();
 		argList = NULL;
 		error = ParseString(&argList);
 		if (!error) {
-			int pid;
-			argv= List2arg(argList,&argc);
-			pid = Execution(argv[0], argv);
+			execList = List2arg(argList, execList);
+			Execution(execList);
 		}
 		if (error == 1)
 			break;
 		if (error == 2)
 			printf("Mismatched quotes\n");
-		for(i=0;i<=argc;i++)
-			   free(argv[argc-i]);
-		free(argv);	
+		while (execList) {
+			struct execNode * tmp = execList->next;
+			if(execList->status == TERMINATED) {
+				while(execList->argc) {
+					free(execList->argv[argc-1]);
+					(execList->argc)--;
+				}
+				free(execList->argv);
+				free(execList);
+				execList = tmp;
+			}
+		}
 	} while (error != 1);
 	printf("\n");
 	return 0;

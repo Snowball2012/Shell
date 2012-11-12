@@ -100,6 +100,18 @@ int ParseString(struct argument ** argList)
 			case '\"':
 				quotes = !quotes;
 				break;
+			case '&':
+			case ';':
+				if(!quotes){
+					AddWord(buff, argList);
+					buff.place = 0;
+					AddChar(c, &buff);
+					AddWord(buff, argList);
+					buff.place = 0;
+				} else {
+					AddChar(c, &buff);
+				}
+				break;
 			default:
 				AddChar(c, &buff);
 				break;
