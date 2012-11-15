@@ -2,7 +2,7 @@
 #define EXECUTION_H
 
 #define TO_RUN 0
-#define RUNNING 1
+#define RUNNING 5
 #define BACKGROUND 2
 #define CONVAYOR 3
 #define SEPARATOR 1
@@ -25,5 +25,6 @@ struct execNode {
 /* converts argument list to array for next execution */
 struct execNode * List2arg(struct argument * list, struct execNode * node);
 int Execution(struct execNode * list);
+void TerminatePid(int pid, struct execNode * list);
 
 #endif

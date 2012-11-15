@@ -23,6 +23,20 @@ int ParseWord(char * word)
 	return TO_RUN;
 }
 
+struct execNode * RollExeList(struct execNode * list)
+{
+	struct execNode *rolled = NULL, * temp;
+	while(list) {
+		temp = rolled;
+		rolled = list;
+		list = list->next;
+		rolled->next = temp;
+	}
+	return rolled;
+}
+
+
+
 /* convert argument list to argv[]
  * status says if there were &, ||, ; or redirection symbols 
  * 0 - nothing
@@ -39,25 +53,30 @@ struct execNode * List2arg(struct argument * list, struct execNode * node)
 	while(tmpArg) {
 		int argc;
 		struct execNode * tmp = node;
-		struct execNode * node = (struct execNode *)malloc(sizeof(*node));
+		node = (struct execNode *)malloc(sizeof(*node));
 		for (argc=0; tmpArg!= NULL && (node->status = ParseWord(tmpArg->word)) == 0; argc++) 
 			tmpArg = tmpArg->next;
-		if (tmpArg)
-			tmpArg = tmpArg->next;
-		argv = malloc(sizeof(char*)*(argc+1));
+		argv = (char **)malloc(sizeof(char*)*(argc+1));
 		tmpArg = list;
-		for (i = 1; i<=argc; i++) {
-			argv[argc-i] = tmpArg->word;
+		for (i = 0; i<argc; i++) {
+			argv[i] = tmpArg->word;
 			tmpArg = tmpArg->next;
 			free(list);
 			list = tmpArg;
 		}
+		if (list) {
+			list = list->next;
+			free(tmpArg);
+			tmpArg = list;
+		}
 		argv[argc] = NULL;
+
 		node->next = tmp;
 		node->argc = argc;
 		node->argv = argv;
 		node->pid = 0;
 	}
+	node = RollExeList(node);
 	return node;
 }
 
@@ -88,26 +107,27 @@ void TerminatePid(int pid, struct execNode * list)
 {
 	while(list->pid != pid && list->next!=NULL)
 		list = list->next;
-	if(list->pid == pid)
+	if(list->pid == pid) {
+		printf("chell: process with pid [%i] terminated\n", pid); 
 		list->status = TERMINATED;
+	}
 }
 
 int Execution(struct execNode * list)
 {
-	struct execNode * tmp = list;
+	struct execNode * start = list;
 	while (list) {
 		/* Check for cd */
 		int error;
-		int pid;
 		if (list->status == CONVAYOR) {
-			/*process convayor*/
+			/*process convayor, now empty*/
 			list = list->next;
 			continue;
 		}
 		error = CheckCD(list->argv);
 		if (error == THERE_IS_NO_CD) {
 			list->pid = fork();
-			if(!pid) {
+			if(!list->pid) {
 				error = execvp(list->argv[0], list->argv);
 				if (error) {
 					ExecErrHandle(errno, list->argv);
@@ -117,27 +137,13 @@ int Execution(struct execNode * list)
 			if (list->status != BACKGROUND) {
 				int ch_pid;
 				while(list->pid != (ch_pid = wait(NULL)))
-					TerminatePid(ch_pid, list);
+					TerminatePid(ch_pid, start);
 			} else {
 				printf("PID:[%i]\n", list->pid);
+				list->status = RUNNING;
 			}
 		}
 		list = list->next;
 	}
-	while(tmp) 
-		if (tmp->status == BACKGROUND)
-			if (waitpid(tmp->pid, NULL, WNOHANG)) {
-				printf("chell: background process with PID [%i] terminated\n", tmp->pid);
-				tmp->status = TERMINATED;
-			}
 	return 0;
 }
-
-
-
-
-
-
-
-
-

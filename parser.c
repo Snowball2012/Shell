@@ -71,6 +71,19 @@ void ProcessSpace(struct buffer * buff, char quotes, struct argument ** argList)
 	}
 }
 
+struct argument * RollList(struct argument * list) 
+{
+	struct argument *rolled = NULL, * temp;
+	while(list) {
+		temp = rolled;
+		rolled = list;
+		list = list->next;
+		rolled->next = temp;
+	}
+	return rolled;
+}
+
+
 /*Parses new string in the command line---------------------------------------------------------------------
  * error codes:
  * 1 - EOF, program will be terminated
@@ -120,5 +133,6 @@ int ParseString(struct argument ** argList)
 	if(error==0) 
 		AddWord(buff, argList);
 	free(buff.content);
+	*argList = RollList(*argList);
 	return error;
 }
