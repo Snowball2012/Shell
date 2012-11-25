@@ -7,20 +7,25 @@
 #include <errno.h>
 #include "execution.h"
 #include "cd.h"
+#include "redirection.h"
 
 
-
+/*TODO:fix empty command execution*/
 /* Parses word and checks for special symbols, returns code, which described below */
 
-int ParseWord(char * word)
+int ParseWord(struct argument * list)
 {
-	if (!strcmp(word, "&"))
+	if (list == NULL)
+		return END_LIST;
+	if (!strcmp(list->word, "&"))
 		return BACKGROUND;
-	if (!strcmp(word, ";"))
+	if (!strcmp(list->word, ";"))
 		return SEPARATOR;
-	if (!strcmp(word, "||"))
+	if (!strcmp(list->word, "||"))
 		return CONVAYOR;
-	return TO_RUN;
+	if (!strcmp(list->word, "<") || !strcmp(list->word, ">") || !strcmp(list->word, ">>"))
+		return REDIRECTION;	
+	return SIMPLE_WORD;
 }
 
 struct execNode * RollExeList(struct execNode * list)
@@ -35,46 +40,78 @@ struct execNode * RollExeList(struct execNode * list)
 	return rolled;
 }
 
+void FreeExec(struct execNode * list) 
+{
+	struct execNode * tmp;
+	while (list) {
+		int i;
+		tmp = list->next;
+		for(i = list->argc - 1; i>=0; i--) 
+			free((list->argv)[i]);
+		free(list->argv);
+		if(list->input != 0) 
+			close(list->input);
+		if(list->output != 1)
+			close(list->output);
+		free(list);
+		list = tmp;
+	}
+}
+
 
 
 /* convert argument list to argv[]
- * status says if there were &, ||, ; or redirection symbols 
+ * status says if there were &, |, ; or redirection symbols 
  * 0 - nothing
  * 1 - ;
  * 2 - &
- * 3 - ||
+ * 3 - |
  * 4 - redirection */
-
-struct execNode * List2arg(struct argument * list, struct execNode * node)
+struct execNode * List2arg(struct argument * list)
 {
-	char ** argv;
-	int i;
-	struct argument * tmpArg = list;
-	while(tmpArg) {
-		int argc;
-		struct execNode * tmp = node;
-		node = (struct execNode *)malloc(sizeof(*node));
-		for (argc=0; tmpArg!= NULL && (node->status = ParseWord(tmpArg->word)) == 0; argc++) 
-			tmpArg = tmpArg->next;
-		argv = (char **)malloc(sizeof(char*)*(argc+1));
-		tmpArg = list;
-		for (i = 0; i<argc; i++) {
-			argv[i] = tmpArg->word;
-			tmpArg = tmpArg->next;
-			free(list);
-			list = tmpArg;
-		}
-		if (list) {
+	struct execNode * node = NULL;
+	int argc = 0;
+	char ** argv = NULL;
+	int status;
+	int i, error;
+	while (list) {
+		struct argument * tmpArg = list;
+		argc = 0;
+		while ((status = ParseWord(list)) == SIMPLE_WORD) {
+			argc++;
 			list = list->next;
-			free(tmpArg);
-			tmpArg = list;
 		}
-		argv[argc] = NULL;
-
-		node->next = tmp;
-		node->argc = argc;
-		node->argv = argv;
-		node->pid = 0;
+		if (argc>0) {
+			struct execNode * tmpNode = node;
+			list = tmpArg;
+			node = (struct execNode *)malloc(sizeof(*node));
+			argv = (char **)malloc(argc*sizeof(char *)+1);
+			node->argc = argc;
+			node->input = 0;
+			node->output = 1;
+			node->status = status;
+			for (i = 0; i<argc; i++) {
+				argv[i] = list->word;
+				list = list->next;
+			}
+			argv[argc] = NULL;
+			node->argv = argv;
+			node->next = tmpNode;
+			if (status == REDIRECTION) {
+				error = Redirection(&list, node);
+				if (error) {
+					RedirError(error, node);
+					FreeExec(node);
+					return NULL;
+				}
+			}
+		} else {
+			if (status!=SEPARATOR && status!=BACKGROUND) {
+				printf("chell: empty command\n");
+				break;
+			}
+			list = list->next;
+		}
 	}
 	node = RollExeList(node);
 	return node;
@@ -103,44 +140,45 @@ void ExecErrHandle(int error,char ** argv)
 	}
 }
 
-void TerminatePid(int pid, struct execNode * list) 
-{
-	while(list->pid != pid && list->next!=NULL)
-		list = list->next;
-	if(list->pid == pid) {
-		printf("chell: process with pid [%i] terminated\n", pid); 
-		list->status = TERMINATED;
-	}
-}
 
 int Execution(struct execNode * list)
 {
-	struct execNode * start = list;
 	while (list) {
-		/* Check for cd */
-		int error;
-		if (list->status == CONVAYOR) {
-			/*process convayor, now empty*/
-			list = list->next;
-			continue;
-		}
-		error = CheckCD(list->argv);
-		if (error == THERE_IS_NO_CD) {
-			list->pid = fork();
-			if(!list->pid) {
-				error = execvp(list->argv[0], list->argv);
-				if (error) {
-					ExecErrHandle(errno, list->argv);
-					exit(1);
-				}
+		if (list->argc >0) {
+			/* Check for cd */
+			int error;
+			if (list->status == CONVAYOR) {
+				/*process convayor, now empty*/
+				list = list->next;
+				continue;
 			}
-			if (list->status != BACKGROUND) {
-				int ch_pid;
-				while(list->pid != (ch_pid = wait(NULL)))
-					TerminatePid(ch_pid, start);
-			} else {
-				printf("PID:[%i]\n", list->pid);
-				list->status = RUNNING;
+			error = CheckCD(list->argv);
+			if (error == THERE_IS_NO_CD) {
+				list->pid = fork();
+				if(!list->pid) {
+					dup2(list->input, 0);
+					dup2(list->output, 1);
+					if(list->input!=0)
+						close(list->input);
+					if(list->output!=1)
+						close(list->output);
+					error = execvp(list->argv[0], list->argv);
+					if (error) {
+						ExecErrHandle(errno, list->argv);
+						exit(1);
+					}
+				}
+				if (list->input!=0)
+					close(list->input);
+				if (list->output!=1)
+					close(list->output);
+				if (list->status != BACKGROUND) {
+					int ch_pid;
+					while(list->pid != (ch_pid = wait(NULL)))
+						printf("chell: [%i] terminated\n", ch_pid);
+				} else {
+					printf("PID:[%i]\n", list->pid);
+				}
 			}
 		}
 		list = list->next;

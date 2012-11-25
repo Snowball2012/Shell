@@ -68,6 +68,9 @@ int CheckCD(char ** argv)
 				case CD_MANY_ARGS:
 					printf(" cd: Too many arguments\n");
 					break;
+				case CD_NO_ARGS:
+					printf(" cd: No arguments\n");
+					break;
 				case CD_CONVAYOR:
 					printf(" cd: Cannot be used in the Convayor\n");
 					break;

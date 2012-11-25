@@ -14,11 +14,13 @@ void AddWord(struct buffer buff, struct argument ** argList)
 	(buff.content)[wordEnd] = '\0';
 	char * word = (char*)malloc(sizeof(char)*(wordEnd+1));
 	char * wordStart = word;
+	char * content = buff.content;
 	while (*buff.content!='\0'){
 		*word = *buff.content;
 		word++;
 		(buff.content)++;
 	}
+	buff.content = content;
 	*word = '\0';	
 	struct argument * newItem = (struct argument *)malloc(sizeof(*newItem));
 	newItem->next = *argList;
@@ -95,6 +97,7 @@ int ParseString(struct argument ** argList)
 	struct buffer buff = InitBuff();
 	int error=0;
 	int isEnd = 0;   /*line end flag */
+	int outRedir = 0; /*to differ > and >> */
 	do {
 		int c = getchar();
 		switch(c) {
@@ -115,6 +118,8 @@ int ParseString(struct argument ** argList)
 				break;
 			case '&':
 			case ';':
+			case '<':
+			case '|':
 				if(!quotes){
 					AddWord(buff, argList);
 					buff.place = 0;
@@ -125,7 +130,29 @@ int ParseString(struct argument ** argList)
 					AddChar(c, &buff);
 				}
 				break;
+			case '>':	
+				if(!quotes) {
+					if(outRedir) { 
+						outRedir = 0;
+						AddChar(c, &buff);
+						AddWord(buff, argList);
+						buff.place = 0;
+					} else {
+						outRedir = 1;
+						AddWord(buff, argList);
+						buff.place = 0;
+						AddChar(c, &buff);
+					}
+				} else {
+					AddChar(c, &buff);
+				}
+				break;
 			default:
+				if(outRedir) {
+					outRedir = 0;
+					AddWord(buff, argList);
+					buff.place = 0;
+				}
 				AddChar(c, &buff);
 				break;
 		}
