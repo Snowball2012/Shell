@@ -18,8 +18,9 @@ int Redirection(struct argument ** list, struct execNode * node)
 {
 	int inpFlag = 0;
 	int outFlag = 0;
-	int fileFlags = 0;
+	int fileFlags;
 	while (*list) {
+		fileFlags = 0;
 		char * redsymb;
 		int fd;
 		int type;
@@ -44,7 +45,7 @@ int Redirection(struct argument ** list, struct execNode * node)
 		if (!strcmp(redsymb, ">>")) {
 			if (outFlag != 0)
 				return 1;
-			inpFlag++;
+			outFlag++;
 			fileFlags = O_APPEND|O_CREAT|O_WRONLY;
 			destination = &(node->output);
 		}
@@ -52,7 +53,7 @@ int Redirection(struct argument ** list, struct execNode * node)
 			if (outFlag != 0)
 				return 1;
 			outFlag++;
-			fileFlags = O_CREAT|O_WRONLY;
+			fileFlags = O_CREAT|O_WRONLY|O_TRUNC;
 			destination = &(node->output);
 		}
 		if (!strcmp(redsymb, "<")) {
@@ -62,7 +63,7 @@ int Redirection(struct argument ** list, struct execNode * node)
 			destination = &(node->input);
 			fileFlags = O_RDONLY;
 		}
-		fd = open((*list)->word, fileFlags);
+		fd = open((*list)->word, fileFlags, 0664); /*if new file created, permissions set to rw--rw--r--*/
 		if (fd == -1) 
 			return 3;
 		*destination = fd;
