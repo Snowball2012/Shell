@@ -16,25 +16,7 @@
  */
 
 /* Handler for run-time chdir errors */
-void CDErrHandle(int error)
-{
-	switch (error) {
-		case ENOTDIR:
-			printf(" cd: Argument is not a directory\n");
-			break;
-		case ENAMETOOLONG:
-			printf(" cd: Argument too long\n");
-			break;
-		case ENOENT:
-			printf(" cd: Directory doesn't exists\n");
-			break;	
-		case EACCES:
-			printf(" cd: Search permissions are denied\n");
-			break;
-		default:
-			printf(" cd: Unknown error\n");
-	}
-}
+
 
 /* Checking argv for errors if command is cd */
 
@@ -52,17 +34,17 @@ int ErrCD(char ** argv)
 
 
 
-/* CD command handler */
+/* CD command handler , 2-nd arg is a flag for check only */
 
-int CheckCD(char ** argv)
+int CheckCD(char ** argv, char chk_only)
 {
 	int error = 0;
 	if(!strcmp(argv[0], "cd")) {
 		error = ErrCD(argv);
-		if(!error) 
+		if(!error) 	
 			error = chdir(argv[1]);
 		if(error == -1) 
-			CDErrHandle(errno);
+			perror("cd");	
 		else if(error) {
 			switch (error) {
 				case CD_MANY_ARGS:

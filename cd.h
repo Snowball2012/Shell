@@ -10,6 +10,6 @@
 
 void CDErrHandle(int error);
 
-int CheckCD(char ** argv);
+int CheckCD(char ** argv, char chk_only);
 
 #endif

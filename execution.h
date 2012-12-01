@@ -26,6 +26,7 @@ struct execNode {
 
 
 /* converts argument list to array for next execution */
+int ExecProc(struct execNode * list);
 struct execNode * List2arg(struct argument * list);
 int Execution(struct execNode * list);
 void TerminatePid(int pid, struct execNode * list);

@@ -8,6 +8,7 @@
 #include "execution.h"
 #include "cd.h"
 #include "redirection.h"
+#include "convayor.h"
 
 
 /*TODO:fix empty command execution*/
@@ -21,7 +22,7 @@ int ParseWord(struct argument * list)
 		return BACKGROUND;
 	if (!strcmp(list->word, ";"))
 		return SEPARATOR;
-	if (!strcmp(list->word, "||"))
+	if (!strcmp(list->word, "|"))
 		return CONVAYOR;
 	if (!strcmp(list->word, "<") || !strcmp(list->word, ">") || !strcmp(list->word, ">>"))
 		return REDIRECTION;	
@@ -60,13 +61,7 @@ void FreeExec(struct execNode * list)
 
 
 
-/* convert argument list to argv[]
- * status says if there were &, |, ; or redirection symbols 
- * 0 - nothing
- * 1 - ;
- * 2 - &
- * 3 - |
- * 4 - redirection */
+/* convert argument list to execution nodes list */
 struct execNode * List2arg(struct argument * list)
 {
 	struct execNode * node = NULL;
@@ -106,7 +101,7 @@ struct execNode * List2arg(struct argument * list)
 				}
 			}
 		} else {
-			if (status!=SEPARATOR && status!=BACKGROUND) {
+			if (status!=SEPARATOR && status!=BACKGROUND && status!=CONVAYOR) {
 				printf("chell: empty command\n");
 				break;
 			}
@@ -117,27 +112,22 @@ struct execNode * List2arg(struct argument * list)
 	return node;
 }
 
-void ExecErrHandle(int error,char ** argv)
+
+
+int ExecProc(struct execNode * list)
 {
-	switch(error) {
-		case EPERM:
-			printf("Operation not permitted\n");
-			break;
-		case ENOENT:
-			printf("[%s]: Command not found\n", argv[0]);
-			break;
-		case E2BIG:
-			printf("Argument list too long\n");
-			break;
-		case ENOEXEC:
-			printf("Exec format error\n");
-			break;
-		case ENOMEM:
-			printf("Cannot allocate memory\n");
-			break;
-		default:
-			printf("Unknown error");
-	}
+	int error;
+	dup2(list->input, 0);
+	dup2(list->output, 1);
+	if(list->input!=0)
+		close(list->input);
+	if(list->output!=1)
+		close(list->output);
+	error = execvp(list->argv[0], list->argv);
+	if (error) 
+		perror("execvp");	
+	exit(1);
+	return 0;
 }
 
 
@@ -149,25 +139,25 @@ int Execution(struct execNode * list)
 			int error;
 			if (list->status == CONVAYOR) {
 				/*process convayor, now empty*/
-				list = list->next;
+				error = Convayor(&list);
+				if(error) {
+					ConvErr(error);
+					while(list) {
+						if(list->input!=0)
+							close(list->input);
+						if(list->output!=1)
+							close(list->output);
+						list = list->next;
+					}
+					return 0;
+				}
 				continue;
 			}
-			error = CheckCD(list->argv);
+			error = CheckCD(list->argv, 0);
 			if (error == THERE_IS_NO_CD) {
 				list->pid = fork();
-				if(!list->pid) {
-					dup2(list->input, 0);
-					dup2(list->output, 1);
-					if(list->input!=0)
-						close(list->input);
-					if(list->output!=1)
-						close(list->output);
-					error = execvp(list->argv[0], list->argv);
-					if (error) {
-						ExecErrHandle(errno, list->argv);
-						exit(1);
-					}
-				}
+				if(!list->pid) 
+					ExecProc(list);
 				if (list->input!=0)
 					close(list->input);
 				if (list->output!=1)
